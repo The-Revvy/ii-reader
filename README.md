@@ -1,3 +1,29 @@
+# ii-Reader
+A Wii Homebrew app to inject vpk data into your e-Reader save file.
+
+Requires vpk data named "vpk.bin" in "SD://iireader"
+
+Modify "title.bin" in a hex editor to change the name of the program (maximum 35 characters).
+
+
+Based on GBA Link Cable Dumper v1.6 by FIX94
+
+# Special Shoutouts to:
+FIX94
+
+Chishm
+
+Dark Fader
+
+Caitsith2
+
+The e-Reader Crew
+
+# todo
+-Add suport for more than just z80 data, should be p easy
+
+
+# Original README.md
 # GBA Link Cable Dumper
 A GC and Wii Homebrew App to get GBA BIOS, ROMs and saves via the GC GBA Link Cable.  
 Save Support based on SendSave by Chishm.  
