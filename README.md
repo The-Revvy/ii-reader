@@ -5,6 +5,14 @@ Requires vpk data named "vpk.bin" in "SD://iireader"
 
 Modify "title.bin" in a hex editor to change the name of the program (maximum 35 characters).
 
+# To obtain vpk.bin
+
+* Obtain a .raw dump of your desired e-Reader card
+* Download [nedcenc](https://www.caitsith2.com/ereader/tools/nedcenc.rar) from [caitsith2.com E-Reader Development Tools](https://www.caitsith2.com/ereader/devtools.htm)
+* Run the following command 
+```
+nedcenc.exe -i <input>.raw -o vpk.bin -d
+```
 
 Based on GBA Link Cable Dumper v1.6 by FIX94
 
