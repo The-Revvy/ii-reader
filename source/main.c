@@ -15,6 +15,8 @@
 #include <fcntl.h>
 #include <dirent.h>
 #include <fat.h>
+#include "crc.h"
+
 
 //from my tests 50us seems to be the lowest
 //safe si transfer delay in between calls
@@ -27,9 +29,11 @@ void printmain()
 {
 	printf("\x1b[2J");
 	printf("\x1b[37m");
-	printf("GBA Link Cable Dumper v1.6 by FIX94\n");
+	printf("ii-Reader by Revvy\n");
+	printf("Based on GBA Link Cable Dumper v1.6 by FIX94\n");
 	printf("Save Support based on SendSave by Chishm\n");
-	printf("GBA BIOS Dumper by Dark Fader\n \n");
+	printf("GBA BIOS Dumper by Dark Fader\n");
+	printf("CRC Calculation Tool by CaitSith2\n \n");
 }
 
 u8 *resbuf,*cmdbuf;
@@ -223,11 +227,11 @@ int main(int argc, char *argv[])
 		printmain();
 		fatalError("ERROR: No usable device found to write dumped files to!");
 	}
-	mkdir("/dumps", S_IREAD | S_IWRITE);
-	if(!dirExists("/dumps"))
+	mkdir("/iireader", S_IREAD | S_IWRITE);
+	if(!dirExists("/iireader"))
 	{
 		printmain();
-		fatalError("ERROR: Could not create dumps folder, make sure you have a supported device connected!");
+		fatalError("ERROR: Could not create iireader folder, make sure you have a supported device connected!");
 	}
 	int i;
 	while(1)
@@ -303,8 +307,7 @@ int main(int argc, char *argv[])
 			while(1)
 			{
 				printmain();
-				printf("Press A once you have a GBA Game inserted.\n");
-				printf("Press Y to backup the GBA BIOS.\n \n");
+				printf("Press A once you have an e-Reader inserted.\n \n");
 				PAD_ScanPads();
 				VIDEO_WaitVSync();
 				u32 btns = PAD_ButtonsDown(0);
@@ -330,6 +333,15 @@ int main(int argc, char *argv[])
 						//get rom header
 						for(i = 0; i < 0xC0; i+=4)
 							*(vu32*)(testdump+i) = recv();
+						//check if ereader
+						char erid[4];
+						snprintf(erid, 5, (testdump+0xAC));
+						if ((strcmp(erid,"PEAJ")!= 0) && (strcmp(erid,"PSAJ") != 0)  && (strcmp(erid,"PSAE") != 0)){
+							warnError("ERROR: Not an e-Reader, exiting\n");
+							VIDEO_WaitVSync();
+							VIDEO_WaitVSync();
+							exit(0);
+						}						
 						//print out all the info from the  game
 						printf("Game Name: %.12s\n",(char*)(testdump+0xA0));
 						printf("Game ID: %.4s\n",(char*)(testdump+0xAC));
@@ -341,22 +353,31 @@ int main(int argc, char *argv[])
 							printf("No Save File\n \n");
 						//generate file paths
 						char gamename[64];
-						sprintf(gamename,"/dumps/%.12s [%.4s%.2s].gba",
+						sprintf(gamename,"/iireader/%.12s [%.4s%.2s].gba",
 							(char*)(testdump+0xA0),(char*)(testdump+0xAC),(char*)(testdump+0xB0));
 						fixFName(gamename+7); //fix name behind "/dumps/"
 						char savename[64];
-						sprintf(savename,"/dumps/%.12s [%.4s%.2s].sav",
+						sprintf(savename,"/iireader/%.12s [%.4s%.2s].sav",
 							(char*)(testdump+0xA0),(char*)(testdump+0xAC),(char*)(testdump+0xB0));
 						fixFName(savename+7); //fix name behind "/dumps/"
+						char vpkdata[64];
+						sprintf(vpkdata,"/iireader/vpk.bin");
+						char template[64];
+						sprintf(template,"/iireader/blank.sav");
+						char headerin[64];
+						sprintf(headerin,"/iireader/header.bin");
+						char vpkin[64];
+						sprintf(vpkin,"/iireader/inject.sav");
+						char buf[64];
 						//let the user choose the option
 						printf("Press A to dump this game, it will take about %i minutes.\n",gbasize/1024/1024*3/2);
 						printf("Press B if you want to cancel dumping this game.\n");
 						if(savesize > 0)
 						{
 							printf("Press Y to backup this save file.\n");
-							printf("Press X to restore this save file.\n");
-							printf("Press Z to clear the save file on the GBA Cartridge.\n\n");
+							printf("Press X to inject vpk.bin.\n\n");
 						}
+						
 						else
 							printf("\n");
 						int command = 0;
@@ -386,11 +407,6 @@ int main(int argc, char *argv[])
 									command = 3;
 									break;
 								}
-								else if(btns&PAD_TRIGGER_Z)
-								{
-									command = 4;
-									break;
-								}
 							}
 						}
 						if(command == 1)
@@ -415,8 +431,78 @@ int main(int argc, char *argv[])
 						}
 						else if(command == 3)
 						{
+						//alright, here we go. it's not pretty but it works
+						remove("/iireader/inject.sav");
+						FILE *titlebin, *injectbin, *blanksav, *vpkbin, *lendi;
+						char data[65536];
+						char title[35];
+						char endi[1];
+						int savend;
+						//char ch, blanksav[20], injectbin[20];
+						blanksav = fopen("/iireader/blank.sav", "rb");
+						injectbin = fopen("/iireader/inject.bin", "wb");
+						titlebin = fopen("/iireader/title.bin", "rb");
+						vpkbin = fopen("/iireader/vpk.bin", "rb");
+						lendi = fopen("/iireader/lendi.bin", "w+b");
+						fread(data, 65536, 1, blanksav);
+						fwrite(data, 65536, 1, injectbin);
+						fread(data, 65536, 1, blanksav);
+						fwrite(data, 65536, 1, injectbin);
+
+
+						fseek(injectbin, 65540, SEEK_SET);
+						fread(title, 35, 1, titlebin);
+						fwrite(title, 35, 1, injectbin);
+						fputc(0x00, injectbin);
+						fputc(0x04, injectbin);
+						fputc(0x00, injectbin);
+						fputc(0x00, injectbin);
+						fputc(0x00, injectbin);
+						short vpksize;
+						fseek( vpkbin, 81, SEEK_SET );
+						for(vpksize = 0; getc(vpkbin) != EOF; ++vpksize);
+						fwrite(&vpksize, 2, 1, lendi);
+						fseek( lendi, 1, SEEK_SET );
+						fread(endi, 1, 1, lendi);
+						fwrite(endi, 1, 1, injectbin);
+						fseek( lendi, 0, SEEK_SET );
+						fread(endi, 1, 1, lendi);
+						fwrite(endi, 1, 1, injectbin);
+						fputc(0x00, injectbin);
+						fputc(0x00, injectbin);
+						fputc(0x00, injectbin);
+						fputc(0x00, injectbin);
+						fputc(0x00, injectbin);
+						fputc(0x00, injectbin);
+						fseek( lendi, 0, SEEK_SET );
+						fseek( vpkbin, 83, SEEK_SET );
+						for(vpksize = 0; getc(vpkbin) != EOF; ++vpksize);
+						fwrite(&vpksize, 2, 1, lendi);
+						fseek( lendi, 1, SEEK_SET );
+						fread(endi, 1, 1, lendi);
+						fwrite(endi, 1, 1, injectbin);
+						fseek( lendi, 0, SEEK_SET );
+						fread(endi, 1, 1, lendi);
+						fwrite(endi, 1, 1, injectbin);
+						fseek( lendi, 0, SEEK_SET );
+						fseek(vpkbin, 0, SEEK_END);
+						long vpklength = ftell(vpkbin);
+						fseek(vpkbin, 83, SEEK_SET);  
+						char *vpkdata = malloc(vpklength + 1);
+						fread(vpkdata, 1, vpklength, vpkbin);
+						fwrite(vpkdata, 1, vpklength, injectbin);
+						fclose(titlebin);
+						fclose(injectbin);
+						fclose(vpkbin);
+						fclose(blanksav);
+						fclose(lendi);
+						crcaitsith();
+						remove("/iireader/inject.bin");
+						remove("/iireader/lendi.bin");
+						
+						
 							size_t readsize = 0;
-							FILE *f = fopen(savename,"rb");
+							FILE *f = fopen(vpkin,"rb");
 							if(f)
 							{
 								fseek(f,0,SEEK_END);
@@ -436,7 +522,7 @@ int main(int argc, char *argv[])
 							else
 							{
 								command = 0;
-								warnError("ERROR: No Save to restore!\n");
+								warnError("ERROR: vpk.bin not found!\n");
 							}
 						}
 						send(command);
@@ -517,38 +603,7 @@ int main(int argc, char *argv[])
 						}
 					}
 				}
-				else if(btns&PAD_BUTTON_Y)
-				{
-					const char *biosname = "/dumps/gba_bios.bin";
-					FILE *f = fopen(biosname,"rb");
-					if(f)
-					{
-						fclose(f);
-						warnError("ERROR: BIOS already backed up!\n");
-					}
-					else
-					{
-						//create base file with size
-						printf("Preparing file...\n");
-						createFile(biosname,0x4000);
-						f = fopen(biosname,"wb");
-						if(!f)
-							fatalError("ERROR: Could not create file! Exit...");
-						//send over bios dump command
-						send(5);
-						//the gba might still be in a loop itself
-						sleep(1);
-						//lets go!
-						printf("Dumping...\n");
-						for(i = 0; i < 0x4000; i+=4)
-							*(vu32*)(testdump+i) = recv();
-						fwrite(testdump,0x4000,1,f);
-						printf("Closing file\n");
-						fclose(f);
-						printf("BIOS dumped!\n");
-						sleep(5);
-					}
-				}
+				
 			}
 		}
 	}
