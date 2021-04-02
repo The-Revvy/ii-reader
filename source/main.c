@@ -355,11 +355,11 @@ int main(int argc, char *argv[])
 						char gamename[64];
 						sprintf(gamename,"/iireader/%.12s [%.4s%.2s].gba",
 							(char*)(testdump+0xA0),(char*)(testdump+0xAC),(char*)(testdump+0xB0));
-						fixFName(gamename+7); //fix name behind "/dumps/"
+						//fixFName(gamename+7); //fix name behind "/dumps/"
 						char savename[64];
 						sprintf(savename,"/iireader/%.12s [%.4s%.2s].sav",
 							(char*)(testdump+0xA0),(char*)(testdump+0xAC),(char*)(testdump+0xB0));
-						fixFName(savename+7); //fix name behind "/dumps/"
+						//fixFName(savename+7); //fix name behind "/dumps/"
 						char vpkdata[64];
 						sprintf(vpkdata,"/iireader/vpk.bin");
 						char template[64];

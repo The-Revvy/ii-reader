@@ -3,6 +3,7 @@
 #---------------------------------------------------------------------------------
 .SUFFIXES:
 #---------------------------------------------------------------------------------
+
 ifeq ($(strip $(DEVKITARM)),)
 $(error "Please set DEVKITARM in your environment. export DEVKITARM=<path to>devkitARM)
 endif
@@ -15,13 +16,19 @@ include $(DEVKITARM)/gba_rules
 # SOURCES is a list of directories containing source code
 # DATA is a list of directories containing data files
 # INCLUDES is a list of directories containing header files
+																			
+ 
+																	   
+					   
+ 
 #---------------------------------------------------------------------------------
-TARGET		:=	$(shell basename $(CURDIR))_mb
-BUILD		:=	build
-SOURCES		:=	source
-DATA		:=
-GRAPHICS	:=	gfx	
-INCLUDES	:=
+TARGET		:= $(notdir $(CURDIR))_mb
+BUILD		:= build
+SOURCES		:= source
+INCLUDES	:= include
+DATA		:= data
+MUSIC		:=
+		   
 
 #---------------------------------------------------------------------------------
 # options for code generation
@@ -38,14 +45,15 @@ CFLAGS	+=	$(INCLUDE)
 
 CXXFLAGS	:=	$(CFLAGS) -fno-rtti -fno-exceptions
 
-ASFLAGS	:=	$(ARCH)
-LDFLAGS	=	-g $(ARCH) -Wl,-Map,$(notdir $@).map
+ASFLAGS	:=	-g $(ARCH)
+LDFLAGS	=	-g $(ARCH) -Wl,-Map,$(notdir $*.map)
 
 #---------------------------------------------------------------------------------
 # any extra libraries we wish to link with the project
 #---------------------------------------------------------------------------------
-LIBS	:=	-lgba
+LIBS	:= -lmm -lgba
 
+ 
 #---------------------------------------------------------------------------------
 # list of directories containing libraries, this must be the top level containing
 # include and lib
@@ -56,12 +64,16 @@ LIBDIRS	:=	$(LIBGBA)
 # no real need to edit anything past this point unless you need to add additional
 # rules for different file extensions
 #---------------------------------------------------------------------------------
+
+
 ifneq ($(BUILD),$(notdir $(CURDIR)))
 #---------------------------------------------------------------------------------
 
 export OUTPUT	:=	$(CURDIR)/$(TARGET)
+ 
 export VPATH	:=	$(foreach dir,$(SOURCES),$(CURDIR)/$(dir)) \
 			$(foreach dir,$(DATA),$(CURDIR)/$(dir))
+												
 
 export DEPSDIR	:=	$(CURDIR)/$(BUILD)
 
@@ -72,7 +84,11 @@ CFILES		:=	$(foreach dir,$(SOURCES),$(notdir $(wildcard $(dir)/*.c)))
 CPPFILES	:=	$(foreach dir,$(SOURCES),$(notdir $(wildcard $(dir)/*.cpp)))
 SFILES		:=	$(foreach dir,$(SOURCES),$(notdir $(wildcard $(dir)/*.s)))
 BINFILES	:=	$(foreach dir,$(DATA),$(notdir $(wildcard $(dir)/*.*)))
+
+						  
 BMPFILES	:=	$(foreach dir,$(GRAPHICS),$(notdir $(wildcard $(dir)/*.bmp)))
+						  
+	 
 
 #---------------------------------------------------------------------------------
 # use CXX for linking C++ projects, CC for standard C
@@ -88,9 +104,13 @@ else
 endif
 #---------------------------------------------------------------------------------
 
+												
+
 export OFILES	:=	$(addsuffix .o,$(BINFILES)) \
 					$(BMPFILES:.bmp=.o) \
 					$(CPPFILES:.cpp=.o) $(CFILES:.c=.o) $(SFILES:.s=.o)
+ 
+												
 
 #---------------------------------------------------------------------------------
 # build a list of include paths
@@ -102,6 +122,7 @@ export INCLUDE	:=	$(foreach dir,$(INCLUDES),-I$(CURDIR)/$(dir)) \
 #---------------------------------------------------------------------------------
 # build a list of library paths
 #---------------------------------------------------------------------------------
+ 
 export LIBPATHS	:=	$(foreach dir,$(LIBDIRS),-L$(dir)/lib)
 
 .PHONY: $(BUILD) clean
@@ -117,6 +138,7 @@ clean:
 	@echo clean ...
 	@rm -fr $(BUILD) $(TARGET).elf $(TARGET).gba
 
+
 #---------------------------------------------------------------------------------
 else
 
@@ -125,10 +147,12 @@ DEPENDS	:=	$(OFILES:.o=.d)
 #---------------------------------------------------------------------------------
 # main targets
 #---------------------------------------------------------------------------------
+
 $(OUTPUT).gba	:	$(OUTPUT).elf
 
 $(OUTPUT).elf	:	$(OFILES)
 
+$(OFILES_SOURCES) : $(HFILES)							 
 
 #---------------------------------------------------------------------------------
 # The bin2o rule should be copied and modified
@@ -148,6 +172,8 @@ $(OUTPUT).elf	:	$(OFILES)
 #---------------------------------------------------------------------------------
 %.raw.o	:	%.raw
 #---------------------------------------------------------------------------------
+%.pcx.o	%_pcx.h :	%.pcx
+#---------------------------------------------------------------------------------
 	@echo $(notdir $<)
 	@$(bin2o)
 
@@ -161,7 +187,7 @@ $(OUTPUT).elf	:	$(OFILES)
 #---------------------------------------------------------------------------------
 	grit $< -fts -o$*
 
--include $(DEPENDS)
+-include $(DEPSDIR)/*.d
 
 #---------------------------------------------------------------------------------
 endif
